@@ -1,0 +1,6 @@
+order_id,customer_id,category,order_total
+1,101,Electronics,1200
+2,102,Office,300
+3,101,Electronics,800
+4,103,Fitness,450
+5,104,Home,600
