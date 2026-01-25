@@ -1,0 +1,127 @@
+# Docker Compose configuration for Retail Web Analytics Dashboard
+# Development and production-ready setup
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: retail-analytics-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-retail_analytics}
+      POSTGRES_USER: ${DB_USER:-retail_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=en_US.UTF-8 --lc-ctype=en_US.UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-retail_user} -d ${DB_NAME:-retail_analytics}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - retail-network
+
+  # Flask Web Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: retail-analytics-web
+    restart: unless-stopped
+    environment:
+      # Flask Configuration
+      FLASK_ENV: ${FLASK_ENV:-production}
+      FLASK_APP: app_enhanced.py
+      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
+      
+      # Database Configuration
+      DATABASE_URL: postgresql://${DB_USER:-retail_user}:${DB_PASSWORD:-changeme}@db:5432/${DB_NAME:-retail_analytics}
+      
+      # Application Configuration
+      APP_NAME: "Retail Analytics Dashboard"
+      DEBUG: ${DEBUG:-false}
+      
+      # CORS Configuration
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      
+      # JWT Configuration
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-jwt-secret}
+      JWT_ACCESS_TOKEN_EXPIRES: ${JWT_ACCESS_TOKEN_EXPIRES:-3600}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - retail-network
+
+  # Redis Cache (Optional - for session storage and caching)
+  redis:
+    image: redis:7-alpine
+    container_name: retail-analytics-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-changeme}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - retail-network
+    profiles:
+      - with-redis
+
+  # PgAdmin (Optional - for database management)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: retail-analytics-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - db
+    networks:
+      - retail-network
+    profiles:
+      - with-pgadmin
+
+networks:
+  retail-network:
+    driver: bridge
+    name: retail-analytics-network
+
+volumes:
+  postgres_data:
+    name: retail-analytics-postgres-data
+  redis_data:
+    name: retail-analytics-redis-data
+  pgadmin_data:
+    name: retail-analytics-pgadmin-data
