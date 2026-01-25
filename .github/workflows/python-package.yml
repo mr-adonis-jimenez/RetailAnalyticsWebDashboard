@@ -1,5 +1,15 @@
+# This workflow installs Python dependencies, runs tests, and lints the codebase.
+# For more information:
+# https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
 name: Python package
 
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
 on:
   push:
     branches: [ "main" ]
