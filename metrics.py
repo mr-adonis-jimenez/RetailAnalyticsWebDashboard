@@ -1,8 +1,10 @@
 def total_revenue(df):
     return df["order_total"].sum()
 
+
 def average_order_value(df):
     return df["order_total"].mean()
+
 
 def top_customers(df, limit=10):
     return (
@@ -12,6 +14,7 @@ def top_customers(df, limit=10):
         .head(limit)
         .reset_index()
     )
+
 
 def revenue_by_category(df):
     return (
